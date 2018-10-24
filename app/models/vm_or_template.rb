@@ -1752,8 +1752,17 @@ class VmOrTemplate < ApplicationRecord
     vm_tenant_ids       = Vm.accessible_tenant_ids(user_or_group, Rbac.accessible_tenant_ids_strategy(Vm))
     return if template_tenant_ids.empty? && vm_tenant_ids.empty?
 
-    ["(vms.template = true AND vms.tenant_id IN (?)) OR (vms.template = false AND vms.tenant_id IN (?))",
-     template_tenant_ids, vm_tenant_ids]
+    tenant = user_or_group.current_tenant
+    tenant_vms       = "vms.template = false AND vms.tenant_id IN (?)"
+    public_templates = "vms.template = true AND vms.publicly_available = true"
+
+    if tenant.source_id
+      private_tenant_templates = "vms.template = true AND vms.tenant_id = (?) AND vms.publicly_available = false"
+      ["#{private_tenant_templates} OR #{public_templates} OR #{tenant_vms}", tenant.id, vm_tenant_ids]
+    else
+      tenant_templates = "vms.template = true AND vms.tenant_id IN (?)"
+      ["#{tenant_templates} OR #{public_templates} OR #{tenant_vms}", template_tenant_ids, vm_tenant_ids]
+    end
   end
 
   def self.with_ownership

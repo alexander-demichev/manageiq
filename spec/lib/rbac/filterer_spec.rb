@@ -815,19 +815,25 @@ describe Rbac::Filterer do
             context "when user is restricted user" do
               let(:tenant_3) { FactoryGirl.create(:tenant, :parent => tenant_2) } # T3
               let!(:cloud_template) { FactoryGirl.create(:template_cloud, :tenant => tenant_3, :publicly_available => true) }
+              let!(:volume_template_openstack_1) { FactoryGirl.create(:template_cloud, :tenant => tenant_3, :publicly_available => true) }
 
-              it "returns all public cloud templates" do
+              it "returns all public cloud templates and its descendants" do
                 User.current_user = user_2
+
+                results = described_class.filtered(VmOrTemplate, :user => user_2)
+                expect(results).to match_array([cloud_template, cloud_template_root, volume_template_openstack_1])
+
                 results = described_class.filtered(TemplateCloud, :user => user_2)
-                expect(results).to match_array([cloud_template, cloud_template_root])
+                expect(results).to match_array([cloud_template, cloud_template_root, volume_template_openstack_1])
               end
 
               context "should ignore other tenant's private cloud templates" do
                 let!(:cloud_template) { FactoryGirl.create(:template_cloud, :tenant => tenant_3, :publicly_available => false) }
+                let!(:volume_template_openstack_2) { FactoryGirl.create(:template_cloud, :tenant => tenant_3, :publicly_available => false) }
                 it "returns public templates" do
                   User.current_user = user_2
                   results = described_class.filtered(TemplateCloud, :user => user_2)
-                  expect(results).to match_array([cloud_template_root])
+                  expect(results).to match_array([cloud_template_root, volume_template_openstack_1])
                 end
               end
             end
